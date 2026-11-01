@@ -1,0 +1,473 @@
+@echo off
+REM اجرای اپ کلینیک روی ویندوز + باز شدن در مرورگر
+cd /d "%~dp0"
+start "" "http://localhost:8931/index.html"
+echo در حال اجرای سرور محلی... اين پنجره را نبنديد.
+python -m http.server 8931
+pause
+
+/* Service Worker — اجرای آفلاین اپ کلینیک (نسخه ۱) */
+const CACHE = 'clinic-pwa-v1';
+const FILES = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png'
+];
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    caches.match(e.request, { ignoreSearch: true }).then((hit) => {
+      if (hit) return hit;
+      return fetch(e.request).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match('./index.html'));
+    })
+  );
+});
+
+راهنمای نصب اپ کلینیک دندانپزشکی (دسکتاپ و اندروید)
+=====================================================
+
+این پوشه یک «وب‌اپ نصبی» (PWA) است: بدون اینترنت کار می‌کند،
+آیکون اختصاصی دارد و تمام‌صفحه مثل اپ واقعی اجرا می‌شود.
+
+فایل‌ها:
+- index.html : خود برنامه (شیفت + پذیرش + تاریخ شمسی)
+- manifest.webmanifest : مشخصات اپ و آیکون
+- sw.js : حالت آفلاین
+- icons/ : آیکون‌ها
+- start-clinic.bat : اجرای سریع روی ویندوز
+
+-----------------------------------------------------
+۱) دسکتاپ ویندوز (Chrome یا Edge)
+-----------------------------------------------------
+روش سریع (بدون اینترنت):
+۱. پوشه را در کامپیوتر کپی کنید.
+۲. روی start-clinic.bat دو بار کلیک کنید (پایتون باید نصب باشد).
+۳. مرورگر با آدرس http://localhost:8931/index.html باز می‌شود.
+۴. از منوی مرورگر (سه‌نقطه) گزینه زیر را بزنید:
+   - کروم: Save and share > Install page as app
+     (در نسخه‌های جدید: Install «کلینیک دندانپزشکی»)
+   - اج: Apps > Install this site as an app
+۵. حالا آیکون «کلینیک دندان» روی دسکتاپ و منوی استارت می‌آید
+   و بعد از آن بدون سرور هم از همان آیکون باز می‌شود.
+
+اجرای خودکار با بالا آمدن ویندوز (اختیاری):
+۱. کلید Win+R و تایپ shell:startup و Enter
+۲. از آیکون نصب‌شده یا فایل start-clinic.bat یک میان‌بر (Shortcut)
+   داخل همین پوشه Startup بسازید.
+
+-----------------------------------------------------
+۲) اندروید
+-----------------------------------------------------
+نکته مهم: نصب واقعی (Add to Home screen با حالت اپ) نیاز به
+آدرس اینترنتی (https) دارد؛ یعنی پوشه باید روی یک هاست باشد.
+ساده‌ترین راه‌های رایگان:
+- Netlify Drop: فایل‌ها را در app.netlify.com/drop بکشید و رها کنید
+- GitHub Pages / Cloudflare Pages
+بعد در گوشی:
+۱. آدرس سایت را در Chrome باز کنید.
+۲. منوی سه‌نقطه > Add to Home screen (یا Install app).
+۳. آیکون «کلینیک دندان» به صفحه اصلی اضافه می‌شود و
+   تمام‌صفحه و آفلاین باز می‌شود.
+
+استفاده بدون نصب (سریع):
+- فایل index.html را به گوشی منتقل کنید و مستقیم باز کنید؛
+  همه امکانات کار می‌کند (فقط آیکون جدا و حالت آفلاین کامل ندارد).
+
+-----------------------------------------------------
+۳) توجه
+-----------------------------------------------------
+- باز کردن مستقیم فایل با دابل‌کلیک هم کار می‌کند، ولی «نصب»
+  حتماً نیاز به اجرا از طریق سرور (http) یا هاست اینترنتی دارد.
+- اطلاعات (شیفت‌ها و نوبت‌ها) داخل خود دستگاه ذخیره می‌شود.
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>کلینیک دندانپزشکی | شیفت و پذیرش حرفه‌ای — ۴ یونیت</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>
+  *{box-sizing:border-box;font-family:'Vazirmatn',Vazir,Tahoma,Arial,sans-serif}
+  body{margin:0;background:#f1f5f9;color:#1e293b}
+  header{background:linear-gradient(135deg,#0c4a6e,#0284c7);color:#fff;padding:22px;text-align:center}
+  header h1{margin:0;font-size:22px;font-weight:800}
+  header p{margin:6px 0 0;font-size:13px;opacity:.95}
+  #todayJalali{background:rgba(255,255,255,.18);display:inline-block;padding:5px 16px;border-radius:20px;font-size:13.5px;margin-top:10px;font-weight:700}
+  main{max-width:1180px;margin:16px auto;padding:0 12px 50px}
+  .card{background:#fff;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 2px 12px rgba(2,132,199,.08);border:1px solid #e2e8f0}
+  .card h2{margin:0 0 12px;font-size:16px;color:#0c4a6e;font-weight:800}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input,select,button{padding:9px 12px;border-radius:10px;border:1px solid #cbd5e1;font-size:14px;font-family:inherit}
+  button{border:none;cursor:pointer;background:#0284c7;color:#fff;font-weight:700}
+  button.ghost{background:#e2e8f0;color:#0f172a}
+  button.green{background:#16a34a}button.red{background:#ef4444}button.orange{background:#f59e0b}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .jdate{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:8px 10px}
+  .jdate select{min-width:90px;font-weight:700;color:#0c4a6e}
+  .jdate .lbl{font-size:12.5px;color:#0c4a6e;font-weight:700}
+  .doc-list{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .doc{border-radius:12px;padding:8px 12px;display:flex;gap:8px;align-items:center;font-size:14px;border:2px solid;font-weight:800;cursor:pointer}
+  .doc small{font-weight:400;opacity:.8}
+  .doc button{padding:4px 10px;font-size:12px;border:none;border-radius:8px;background:rgba(0,0,0,.15);color:inherit;cursor:pointer}
+  .c-green{background:#dcfce7!important;border-color:#86efac!important;color:#166534!important}
+  .c-blue{background:#dbeafe!important;border-color:#93c5fd!important;color:#1e40af!important}
+  .c-rose{background:#ffe4e6!important;border-color:#fda4af!important;color:#9f1239!important}
+  .c-amber{background:#fef3c7!important;border-color:#fcd34d!important;color:#92400e!important}
+  .c-purple{background:#ede9fe!important;border-color:#c4b5fd!important;color:#5b21b6!important}
+  .c-teal{background:#ccfbf1!important;border-color:#5eead4!important;color:#115e59!important}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+  th,td{border:1px solid #e2e8f0;padding:7px;text-align:center}
+  th{background:#e0f2fe;color:#0c4a6e}
+  th small{display:block;font-weight:400;font-size:11px;color:#475569}
+  td.day{background:#f8fafc;font-weight:800;min-width:130px}
+  td.day small{display:block;font-weight:700;font-size:11.5px;color:#0284c7;margin-top:3px}
+  td.shift-label{background:#f1f5f9;font-weight:800;font-size:12px;line-height:1.8}
+  td.shift-label small{display:block;color:#64748b;font-size:11px}
+  select.unit{width:100%;min-width:140px;padding:8px;font-weight:800;border-radius:10px;border:2px solid #cbd5e1;font-family:inherit}
+  select.conflict{border:2px solid #ef4444!important;background:#fef2f2!important;color:#991b1b!important}
+  select.empty{background:#fff;color:#64748b;font-weight:400}
+  .summary{display:flex;gap:10px;flex-wrap:wrap}
+  .stat{border:2px solid;border-radius:12px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer}
+  .hint{font-size:12.5px;color:#64748b;line-height:2}
+  .days-check{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;margin-top:8px}
+  #weekJalaliFull{font-size:13px;color:#0c4a6e;background:#e0f2fe;border-radius:10px;padding:6px 12px;margin-top:8px;display:inline-block;font-weight:700}
+  .appt-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0}
+  .appt-form label{font-size:12.5px;font-weight:700;color:#334155}
+  .appt-form input,.appt-form select{width:100%;margin-top:4px}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .fchip{border:2px solid #cbd5e1;background:#f8fafc;border-radius:20px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:700;font-family:inherit}
+  .fchip.active{border-color:#0284c7;background:#e0f2fe;color:#0c4a6e}
+  .svc{border:1px solid #e2e8f0;background:#f8fafc;border-radius:20px;padding:4px 10px;font-size:12px;display:inline-flex;gap:6px;align-items:center}
+  .svc button{padding:1px 8px;font-size:11px;background:#fee2e2;color:#991b1b;border-radius:8px}
+  .badge{display:inline-block;border:2px solid;border-radius:10px;padding:3px 10px;font-weight:800;font-size:12px;white-space:nowrap}
+  .shift-tabs{display:flex;gap:8px;margin:10px 0}
+  .shift-tab{flex:1;border:2px solid #cbd5e1;background:#f8fafc;border-radius:12px;padding:10px;cursor:pointer;text-align:center;font-weight:800;font-size:14px}
+  .shift-tab.active-morning{border-color:#f59e0b;background:#fef3c7;color:#92400e}
+  .shift-tab.active-evening{border-color:#6366f1;background:#e0e7ff;color:#3730a3}
+  #activeShiftBox{background:#f8fafc;border:1px dashed #94a3b8;border-radius:12px;padding:10px;font-size:13px;line-height:2}
+  .ok{color:#15803d;font-weight:800}.warn{color:#b45309;font-weight:800}.err{color:#b91c1c;font-weight:800}
+  @media print{header,.no-print{display:none!important}.card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0284c7">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="کلینیک دندان">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+</head>
+<body>
+<header>
+  <h1>🦷 کلینیک دندانپزشکی — شیفت و پذیرش حرفه‌ای</h1>
+  <p>یونیت البرز (۱) • صدف (۲) • پارس (۳) • بیوتی (۴) &nbsp;|&nbsp; صبح ۹ تا ۱۳ • عصر ۱۶ تا ۲۱</p>
+  <div id="todayJalali"></div>
+</header>
+<div id="installBar" style="display:none;background:#0c4a6e;color:#fff;padding:10px 14px;text-align:center;font-size:14px;font-weight:700;">
+  📲 این برنامه را مثل یک اپ نصب کنید:
+  <button id="installBtn" style="background:#fff;color:#0c4a6e;border:none;border-radius:10px;padding:7px 16px;font-weight:800;cursor:pointer;margin:0 6px;">نصب اپ کلینیک</button>
+</div>
+<main>
+  <div class="card">
+    <h2>۱) دندانپزشکان</h2>
+    <div class="row no-print">
+      <input id="docName" placeholder="نام دندانپزشک — مثلاً دکتر احمدی">
+      <input id="docSpec" placeholder="تخصص (اختیاری)">
+      <button onclick="addDoctor()">＋ افزودن</button>
+      <button class="ghost" onclick="loadSample()">نمونه</button>
+    </div>
+    <div class="doc-list" id="docList"></div>
+    <p class="hint">روی کادر هر پزشک کلیک کنید تا پذیرش با همان پزشک باز شود.</p>
+  </div>
+
+  <div class="card">
+    <h2>۲) هفته — تاریخ شمسی (جلالی)</h2>
+    <div class="jdate">
+      <span class="lbl">شروع هفته (شنبه):</span>
+      <select id="wY" onchange="onWeekJalali()"></select>
+      <select id="wM" onchange="onWeekJalali()"></select>
+      <select id="wD" onchange="onWeekJalali()"></select>
+      <button class="ghost" onclick="setThisSaturday()">شنبه همین هفته</button>
+    </div>
+    <div><span id="weekJalaliFull"></span></div>
+    <div class="days-check" id="daysCheck"></div>
+  </div>
+
+  <div class="card">
+    <h2>۳) جدول شیفت‌ها</h2>
+    <div class="row no-print">
+      <button class="green" onclick="autoFill()">⚖️ تقسیم خودکار عادلانه</button>
+      <button class="orange" onclick="clearSchedule()">پاک کردن جدول</button>
+      <button class="ghost" onclick="saveLocal()">💾 ذخیره</button>
+      <button class="ghost" onclick="exportCSV()">📥 خروجی اکسل شیفت</button>
+      <button onclick="window.print()">🖨️ چاپ</button>
+    </div>
+    <div style="overflow-x:auto"><table id="schedTable"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>۴) خلاصه شیفت</h2>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <div class="card" id="receptionCard">
+    <h2>۵) پذیرش و نوبت‌دهی — فقط پزشک فعال شیفت 🗓️</h2>
+    <div class="jdate">
+      <span class="lbl">تاریخ نوبت (شمسی):</span>
+      <select id="aY" onchange="onApptDateChange()"></select>
+      <select id="aM" onchange="onApptDateChange()"></select>
+      <select id="aD" onchange="onApptDateChange()"></select>
+      <button class="ghost" onclick="setApptToday()">امروز</button>
+      <span id="apptWeekday" style="font-size:12.5px;font-weight:800;color:#0c4a6e"></span>
+    </div>
+    <div class="shift-tabs">
+      <div class="shift-tab" id="tabMorning" onclick="setApptShift('morning')">☀️ صبح — ۹ تا ۱۳</div>
+      <div class="shift-tab" id="tabEvening" onclick="setApptShift('evening')">🌙 عصر — ۱۶ تا ۲۱</div>
+    </div>
+    <div id="activeShiftBox"></div>
+    <div class="appt-form">
+      <label>دندانپزشک (فقط فعال همین شیفت):<select id="apptDoctor" onchange="onApptDoctorChange()"></select></label>
+      <label>یونیت (خودکار از شیفت):<input id="apptUnit" readonly style="background:#f8fafc;font-weight:800"></label>
+      <label>نام بیمار:<input id="apptPatient" placeholder="مثلاً علی محمدی"></label>
+      <label>ساعت پذیرش:<input type="time" id="apptTime" min="09:00" max="21:00"></label>
+      <label>نوع خدمت:<select id="apptService"></select></label>
+    </div>
+    <div class="row no-print"><button class="green" id="btnBook" onclick="addAppointment()">✅ ثبت نوبت</button></div>
+    <div class="row no-print" style="margin-top:10px;border-top:1px dashed #e2e8f0;padding-top:10px">
+      <input id="newServiceName" placeholder="خدمت جدید — مثلاً بلیچینگ" style="flex:2">
+      <input id="newServiceDur" type="number" min="5" max="300" placeholder="مدت (دقیقه)" style="flex:1;min-width:110px">
+      <button class="ghost" onclick="addService()">＋ افزودن خدمت</button>
+    </div>
+    <div class="chip-row" id="serviceChips"></div>
+    <div class="chip-row" id="apptDoctorChips"></div>
+    <div class="row">
+      <label style="font-size:13px"><input type="checkbox" id="onlyApptDate" checked onchange="renderAppointments()"> فقط نوبت‌های تاریخ انتخاب‌شده</label>
+      <button class="ghost" onclick="exportApptCSV()">📥 خروجی اکسل نوبت‌ها</button>
+    </div>
+    <div style="overflow-x:auto"><table id="apptTable"></table></div>
+    <p class="hint">مدل الهام‌گرفته از نرم‌افزارهای ایرانی (نوبت هوشمند بدون تداخل + اتصال به پزشک و یونیت فعال شیفت). ساعت صبح فقط ۹ تا ۱۳ و عصر فقط ۱۶ تا ۲۱ قابل ثبت است و ساعت پایان = ساعت شروع + مدت خدمت.</p>
+  </div>
+</main>
+
+<script>
+/* ===== تبدیل جلالی با تقویم داخلی مرورگر (مطمئن، بدون کتابخانه خارجی) ===== */
+function gregToJalParts(gy,gm,gd){var p=new Intl.DateTimeFormat('en-u-ca-persian',{year:'numeric',month:'numeric',day:'numeric'}).formatToParts(new Date(gy,gm-1,gd,12,0,0));var o={};p.forEach(function(x){o[x.type]=x.value;});return{jy:+o.year,jm:+o.month,jd:+o.day};}
+function toJalaali(gy,gm,gd){return gregToJalParts(gy,gm,gd);}
+function jalToGregParts(jy,jm,jd){var g=new Date(jy+621,2,21,12,0,0);var target=(jm<=6)?(jm-1)*31+(jd-1):186+(jm-7)*30+(jd-1);g.setDate(g.getDate()+target);for(var i=0;i<8;i++){var c=gregToJalParts(g.getFullYear(),g.getMonth()+1,g.getDate());if(c.jy===jy&&c.jm===jm&&c.jd===jd)break;var cur=(c.jm<=6)?(c.jm-1)*31+(c.jd-1):186+(c.jm-7)*30+(c.jd-1);var diff=(target-cur)+(jy-c.jy)*365;if(!diff)break;g.setDate(g.getDate()+diff);}return{gy:g.getFullYear(),gm:g.getMonth()+1,gd:g.getDate()};}
+function toGregorian(jy,jm,jd){return jalToGregParts(jy,jm,jd);}
+function jalMonthLen(jy,jm){if(jm<=6)return 31;if(jm<=11)return 30;var a=jalToGregParts(jy,12,1);var b=jalToGregParts(jy+1,1,1);return Math.round((new Date(b.gy,b.gm-1,b.gd)-new Date(a.gy,a.gm-1,a.gd))/86400000);}
+var JMONTHS=["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
+function faNum(n){return String(n).replace(/[0-9]/g,d=> "۰۱۲۳۴۵۶۷۸۹"[d]);}
+function jalStr(jy,jm,jd){return faNum(jd)+" "+JMONTHS[jm-1]+" "+faNum(jy);}
+function gregToJalStr(gy,gm,gd){var j=toJalaali(gy,gm,gd);return jalStr(j.jy,j.jm,j.jd);}
+function isoToJalStr(iso){var p=iso.split("-");return gregToJalStr(+p[0],+p[1],+p[2]);}
+function jalToIso(jy,jm,jd){var g=toGregorian(jy,jm,jd);return g.gy+"-"+String(g.gm).padStart(2,"0")+"-"+String(g.gd).padStart(2,"0");}
+function weekdayFa(iso){var d=new Date(iso+"T12:00:00");var names=["یکشنبه","دوشنبه","سه‌شنبه","چهارشنبه","پنجشنبه","جمعه","شنبه"];return names[d.getDay()];}
+function dayIdxFa(iso){var d=new Date(iso+"T12:00:00");return (d.getDay()+1)%7;} // شنبه=0
+
+const UNITS=[{name:"البرز",num:"یونیت ۱"},{name:"صدف",num:"یونیت ۲"},{name:"پارس",num:"یونیت ۳"},{name:"بیوتی",num:"یونیت ۴"}];
+const SHIFTS=[{id:"morning",label:"☀️ صبح",time:"۹ تا ۱۳",start:540,end:780},{id:"evening",label:"🌙 عصر",time:"۱۶ تا ۲۱",start:960,end:1260}];
+const ALL_DAYS=["شنبه","یکشنبه","دوشنبه","سه‌شنبه","چهارشنبه","پنجشنبه","جمعه"];
+const COLOR_CLASSES=["c-green","c-blue","c-rose","c-amber","c-purple","c-teal"];
+let doctors=[];let activeDays=[true,true,true,true,true,true,false];let schedule={};
+let services=[{name:"معاینه",dur:10},{name:"ترمیمی",dur:30},{name:"اندو (عصب‌کشی)",dur:60},{name:"تراش",dur:30},{name:"قالب",dur:20},{name:"کشیدن",dur:20},{name:"جراحی",dur:60},{name:"ایمپلنت",dur:60}];
+let appointments=[];let apptFilterDoctor="";let apptShift="morning";
+function key(d,s,u){return d+"_"+s+"_"+u;}
+function colorOf(n){var i=doctors.findIndex(d=>d.name===n);return i<0?"":COLOR_CLASSES[i%COLOR_CLASSES.length];}
+function timeToMin(t){var p=(t||"").split(":");if(p.length<2)return null;return (+p[0])*60+(+p[1]);}
+function minToTime(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
+
+/* ===== سلکت‌های شمسی ===== */
+function fillJalali(selY,selM,selD,y,m,d){
+  var Y=document.getElementById(selY),M=document.getElementById(selM),D=document.getElementById(selD);
+  Y.innerHTML="";[1404,1405,1406,1407].forEach(function(yy){var o=document.createElement("option");o.value=yy;o.textContent=faNum(yy);Y.appendChild(o);});
+  M.innerHTML="";JMONTHS.forEach(function(mn,i){var o=document.createElement("option");o.value=i+1;o.textContent=mn;M.appendChild(o);});
+  function fillD(){var yy=+Y.value,mm=+M.value;var len=jalMonthLen(yy,mm);var cur=+D.value||1;D.innerHTML="";for(var i=1;i<=len;i++){var o=document.createElement("option");o.value=i;o.textContent=faNum(i);D.appendChild(o);}D.value=Math.min(cur,len);}
+  Y.value=y;M.value=m;fillD();D.value=d;
+  Y.onchange=function(){fillD();if(selY==="wY")onWeekJalali();else onApptDateChange();autoSave();};
+  M.onchange=function(){fillD();if(selY==="wY")onWeekJalali();else onApptDateChange();autoSave();};
+  D.onchange=function(){if(selY==="wY")onWeekJalali();else onApptDateChange();autoSave();};
+}
+function getJal(selY,selM,selD){return{y:+document.getElementById(selY).value,m:+document.getElementById(selM).value,d:+document.getElementById(selD).value};}
+function weekStartIso(){var j=getJal("wY","wM","wD");return jalToIso(j.y,j.m,j.d);}
+function apptIso(){var j=getJal("aY","aM","aD");return jalToIso(j.y,j.m,j.d);}
+function addDaysIso(iso,n){var d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+
+function renderToday(){var g=new Date();document.getElementById("todayJalali").textContent="امروز: "+weekdayFa(g.getFullYear()+"-"+String(g.getMonth()+1).padStart(2,"0")+"-"+String(g.getDate()).padStart(2,"0"))+"، "+gregToJalStr(g.getFullYear(),g.getMonth()+1,g.getDate());}
+function setThisSaturday(){var g=new Date();var iso=g.getFullYear()+"-"+String(g.getMonth()+1).padStart(2,"0")+"-"+String(g.getDate()).padStart(2,"0");var idx=dayIdxFa(iso);var sat=addDaysIso(iso,-idx);var p=sat.split("-");var j=toJalaali(+p[0],+p[1],+p[2]);fillJalali("wY","wM","wD",j.jy,j.jm,j.jd);onWeekJalali();}
+function setApptToday(){var g=new Date();var j=toJalaali(g.getFullYear(),g.getMonth()+1,g.getDate());fillJalali("aY","aM","aD",j.jy,j.jm,j.jd);onApptDateChange();}
+function onWeekJalali(){renderToday();var s=weekStartIso();var e=addDaysIso(s,6);document.getElementById("weekJalaliFull").textContent="هفته: "+isoToJalStr(s)+" ("+weekdayFa(s)+") تا "+isoToJalStr(e);renderTable();renderSummary();renderActiveShift();autoSave();}
+
+/* ===== پزشکان و شیفت ===== */
+function addDoctor(name,spec){var n=(name??document.getElementById("docName").value).trim();var sp=(spec??document.getElementById("docSpec").value).trim();if(!n){alert("نام دندانپزشک را وارد کنید");return;}if(doctors.some(d=>d.name===n)){alert("این نام قبلاً ثبت شده");return;}doctors.push({name:n,spec:sp});document.getElementById("docName").value="";document.getElementById("docSpec").value="";renderAll();autoSave();}
+function removeDoctor(name){doctors=doctors.filter(d=>d.name!==name);for(var k in schedule)if(schedule[k]===name)delete schedule[k];appointments=appointments.filter(a=>a.doctor!==name);renderAll();autoSave();}
+function loadSample(){if(!doctors.length)doctors=[{name:"دکتر احمدی",spec:"عمومی"},{name:"دکتر کریمی",spec:"ارتودنسی"},{name:"دکتر موسوی",spec:"ایمپلنت"},{name:"دکتر رضایی",spec:"عمومی"},{name:"دکتر نادری",spec:"اطفال"},{name:"دکتر صادقی",spec:"جراحی"}];renderAll();autoSave();}
+function renderDaysCheck(){var box=document.getElementById("daysCheck");box.innerHTML="";ALL_DAYS.forEach(function(d,i){var l=document.createElement("label");l.innerHTML='<input type="checkbox" '+(activeDays[i]?"checked":"")+' onchange="toggleDay('+i+',this.checked)"> '+d;box.appendChild(l);});}
+function toggleDay(i,v){activeDays[i]=v;renderTable();renderSummary();renderActiveShift();autoSave();}
+function renderDocs(){var box=document.getElementById("docList");box.innerHTML=doctors.length?"":'<span class="hint">هنوز پزشکی ثبت نشده.</span>';doctors.forEach(function(d,i){var el=document.createElement("div");el.className="doc "+COLOR_CLASSES[i%COLOR_CLASSES.length];el.title="کلیک کنید تا پذیرش با این پزشک باز شود";el.onclick=function(e){if(e.target.tagName!=="BUTTON")openReceptionFor(d.name);};var b=document.createElement("b");b.textContent=d.name;el.appendChild(b);if(d.spec){var s=document.createElement("small");s.textContent="("+d.spec+")";el.appendChild(s);}var btn=document.createElement("button");btn.textContent="حذف";btn.onclick=function(){removeDoctor(d.name);};el.appendChild(btn);box.appendChild(el);});}
+function renderTable(){var s=weekStartIso();var html='<tr><th>روز / تاریخ شمسی</th><th>شیفت</th>'+UNITS.map(u=>'<th>🦷 '+u.name+'<small>'+u.num+'</small></th>').join("")+'</tr>';ALL_DAYS.forEach(function(day,di){if(!activeDays[di])return;var iso=addDaysIso(s,di);var html2="";SHIFTS.forEach(function(sh,si){html2+='<tr>';if(si===0)html2+='<td class="day" rowspan="2">'+day+'<small>'+isoToJalStr(iso)+'</small></td>';html2+='<td class="shift-label">'+sh.label+'<small>'+sh.time+'</small></td>';UNITS.forEach(function(u,ui){var k=key(di,sh.id,ui);var val=schedule[k]||"";var cls=val?colorOf(val):"empty";html2+='<td><select class="unit '+cls+'" data-key="'+k+'" onchange="setCell(\''+k+'\',this.value)"><option value="">— خالی —</option>';doctors.forEach(function(d){html2+='<option value="'+d.name+'" '+(val===d.name?"selected":"")+'>'+d.name+'</option>';});html2+='</select></td>';});html2+='</tr>';});html+=html2;});document.getElementById("schedTable").innerHTML=html;checkConflicts();}
+function setCell(k,v){if(v)schedule[k]=v;else delete schedule[k];var sel=document.querySelector('select[data-key="'+k+'"]');if(sel)sel.className="unit "+(v?colorOf(v):"empty");checkConflicts();renderSummary();renderActiveShift();autoSave();}
+function checkConflicts(){var groups={};document.querySelectorAll("select.unit").forEach(function(sel){sel.classList.remove("conflict");var p=sel.dataset.key.split("_");var g=p[0]+"_"+p[1];(groups[g]=groups[g]||[]).push(sel);});Object.values(groups).forEach(function(sels){var seen={};sels.forEach(function(sel){if(sel.value&&seen[sel.value]){sel.classList.add("conflict");seen[sel.value].classList.add("conflict");}else if(sel.value)seen[sel.value]=sel;});});}
+function safeConfirm(msg){try{if(typeof confirm==="function")return confirm(msg);}catch(e){}return true;}
+function autoFill(silent){if(!doctors.length){if(!silent)alert("اول دندانپزشکان را اضافه کنید");return false;}if(!silent&&!safeConfirm("جدول با تقسیم عادلانه پر شود؟"))return false;var count={};doctors.forEach(d=>count[d.name]=0);ALL_DAYS.forEach(function(_,di){if(!activeDays[di])return;SHIFTS.forEach(function(sh){var order=[...doctors].sort((a,b)=>count[a.name]-count[b.name]);var used=new Set();UNITS.forEach(function(_,ui){var cand=order.find(d=>!used.has(d.name))||order[ui%order.length];schedule[key(di,sh.id,ui)]=cand.name;used.add(cand.name);count[cand.name]++;});});});renderTable();renderSummary();renderActiveShift();autoSave();}
+function clearSchedule(){if(!safeConfirm("همه خانه‌ها پاک شود؟"))return;schedule={};renderTable();renderSummary();renderActiveShift();autoSave();}
+function renderSummary(){var box=document.getElementById("summary");var count={};doctors.forEach(d=>count[d.name]=0);Object.values(schedule).forEach(n=>{if(count[n]!==undefined)count[n]++;});box.innerHTML=doctors.length?"":'<span class="hint">پزشکی ثبت نشده.</span>';doctors.forEach(function(d,i){var el=document.createElement("div");el.className="stat "+COLOR_CLASSES[i%COLOR_CLASSES.length];el.textContent=d.name+": "+faNum(count[d.name])+" شیفت";el.onclick=function(){openReceptionFor(d.name);};box.appendChild(el);});}
+function exportCSV(){var s=weekStartIso();var csv="روز,تاریخ شمسی,شیفت,ساعت,"+UNITS.map(u=>u.name+" ("+u.num+")").join(",")+"\n";ALL_DAYS.forEach(function(day,di){if(!activeDays[di])return;var iso=addDaysIso(s,di);SHIFTS.forEach(function(sh){var row=[day,isoToJalStr(iso),sh.label,sh.time];UNITS.forEach(function(_,ui){row.push(schedule[key(di,sh.id,ui)]||"");});csv+=row.join(",")+"\n";});});var blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="shift-4units.csv";a.click();}
+
+/* ===== پذیرش متصل به شیفت ===== */
+function getActiveList(iso,shiftId){var di=dayIdxFa(iso);var out=[];UNITS.forEach(function(u,ui){var doc=schedule[key(di,shiftId,ui)];if(doc&&activeDays[di])out.push({doctor:doc,unit:u.name,unitFull:u.name+" ("+u.num+")",ui:ui});});return out;}
+function setApptShift(s){apptShift=s;document.getElementById("tabMorning").className="shift-tab"+(s==="morning"?" active-morning":"");document.getElementById("tabEvening").className="shift-tab"+(s==="evening"?" active-evening":"");renderActiveShift();autoSave();}
+function onApptDateChange(){var iso=apptIso();document.getElementById("apptWeekday").textContent=weekdayFa(iso)+"، "+isoToJalStr(iso);renderActiveShift();renderAppointments();autoSave();}
+function onApptDoctorChange(){var act=getActiveList(apptIso(),apptShift);var d=document.getElementById("apptDoctor").value;var f=act.find(x=>x.doctor===d);document.getElementById("apptUnit").value=f?f.unitFull:"";}
+function renderActiveShift(){
+  var iso=apptIso();var sh=SHIFTS.find(x=>x.id===apptShift);
+  document.getElementById("tabMorning").className="shift-tab"+(apptShift==="morning"?" active-morning":"");
+  document.getElementById("tabEvening").className="shift-tab"+(apptShift==="evening"?" active-evening":"");
+  document.getElementById("apptWeekday").textContent=weekdayFa(iso)+"، "+isoToJalStr(iso);
+  var act=getActiveList(iso,apptShift);
+  var box=document.getElementById("activeShiftBox");
+  var ds=document.getElementById("apptDoctor");var prev=ds.value;
+  ds.innerHTML="";
+  if(!act.length){box.innerHTML='<span class="err">⛔ برای '+weekdayFa(iso)+' '+sh.label+' شیفتی باز نشده است — اول در جدول شیفت‌ها پزشک بگذارید.</span>';document.getElementById("btnBook").disabled=true;}
+  else{
+    box.innerHTML='<span class="ok">✅ پزشکان فعال '+weekdayFa(iso)+' '+sh.label+' ('+sh.time+'):</span> '+act.map(a=>'<span class="badge '+colorOf(a.doctor)+'">'+a.doctor+' — '+a.unitFull+'</span>').join(" ");
+    act.forEach(function(a){var o=document.createElement("option");o.value=a.doctor;o.textContent=a.doctor+" — "+a.unitFull;ds.appendChild(o);});
+    if(act.some(a=>a.doctor===prev))ds.value=prev;
+    document.getElementById("btnBook").disabled=false;
+  }
+  onApptDoctorChange();
+  // ساعت مجاز
+  document.getElementById("apptTime").min=minToTime(sh.start);document.getElementById("apptTime").max=minToTime(sh.end);
+}
+function renderApptFormOptions(){var ss=document.getElementById("apptService");ss.innerHTML="";services.forEach(function(s){var o=document.createElement("option");o.value=s.name;o.textContent=s.name+" — "+faNum(s.dur)+" دقیقه";ss.appendChild(o);});}
+function renderServiceChips(){var box=document.getElementById("serviceChips");box.innerHTML="";services.forEach(function(s){var el=document.createElement("span");el.className="svc";el.innerHTML="<b>"+s.name+" ("+faNum(s.dur)+"′)</b>";var b=document.createElement("button");b.textContent="✕";b.onclick=function(){services=services.filter(x=>x.name!==s.name);renderApptFormOptions();renderServiceChips();autoSave();};el.appendChild(b);box.appendChild(el);});}
+function addService(){var n=document.getElementById("newServiceName").value.trim();var d=parseInt(document.getElementById("newServiceDur").value,10);if(!n){alert("نام خدمت را وارد کنید");return;}if(!d||d<5){alert("مدت خدمت را وارد کنید");return;}if(services.some(s=>s.name===n)){alert("این خدمت قبلاً هست");return;}services.push({name:n,dur:d});document.getElementById("newServiceName").value="";document.getElementById("newServiceDur").value="";renderApptFormOptions();renderServiceChips();autoSave();document.getElementById("apptService").value=n;}
+function renderApptDoctorChips(){var box=document.getElementById("apptDoctorChips");box.innerHTML="";var all=document.createElement("button");all.className="fchip"+(apptFilterDoctor===""?" active":"");all.textContent="همه پزشک‌ها";all.onclick=function(){apptFilterDoctor="";renderAppointments();};box.appendChild(all);doctors.forEach(function(d,i){var b=document.createElement("button");b.className="fchip "+COLOR_CLASSES[i%COLOR_CLASSES.length]+(apptFilterDoctor===d.name?" active":"");b.textContent=d.name;b.onclick=function(){apptFilterDoctor=d.name;renderAppointments();};box.appendChild(b);});}
+function openReceptionFor(name){apptFilterDoctor=name;var iso=apptIso();var mAct=getActiveList(iso,"morning").find(x=>x.doctor===name);var eAct=getActiveList(iso,"evening").find(x=>x.doctor===name);if(eAct&&!mAct)setApptShift("evening");else setApptShift("morning");setTimeout(function(){var ds=document.getElementById("apptDoctor");if([...ds.options].some(o=>o.value===name))ds.value=name;onApptDoctorChange();},0);document.getElementById("receptionCard").scrollIntoView({behavior:"smooth"});renderAppointments();}
+function addAppointment(){
+  var iso=apptIso();var sh=SHIFTS.find(x=>x.id===apptShift);
+  var doc=document.getElementById("apptDoctor").value;var unit=document.getElementById("apptUnit").value;
+  var patient=document.getElementById("apptPatient").value.trim();var time=document.getElementById("apptTime").value;
+  var svcName=document.getElementById("apptService").value;
+  if(!doc){alert("برای این شیفت پزشکی فعال نیست");return;}
+  if(!patient){alert("نام بیمار را وارد کنید");return;}
+  if(!time){alert("ساعت پذیرش را وارد کنید");return;}
+  var st=timeToMin(time);if(st<sh.start||st>sh.end){alert("ساعت "+sh.label+" فقط "+sh.time+" مجاز است");return;}
+  var svc=services.find(s=>s.name===svcName)||{name:svcName,dur:30};
+  if(st+svc.dur>sh.end+30){if(!safeConfirm("⚠️ ساعت پایان ("+minToTime(st+svc.dur)+") از ساعت شیفت ("+sh.time+") می‌گذرد. ثبت شود؟"))return;}
+  var clash=appointments.find(function(a){if(a.date!==iso||a.shift!==apptShift)return false;if(a.doctor!==doc&&a.unit!==unit)return false;var s2=timeToMin(a.time),e2=s2+(a.dur||30);return Math.max(st,s2)<Math.min(st+svc.dur,e2);});
+  if(clash){if(!safeConfirm("⚠️ تداخل: "+clash.doctor+" ("+clash.unit+") از "+clash.time+" تا "+minToTime(timeToMin(clash.time)+(clash.dur||30))+" نوبت «"+clash.patient+"» را دارد. باز هم ثبت شود؟"))return;}
+  appointments.push({id:Date.now(),date:iso,shift:apptShift,doctor:doc,unit:unit,patient:patient,time:time,service:svc.name,dur:svc.dur});
+  document.getElementById("apptPatient").value="";renderAppointments();autoSave();
+}
+function deleteAppt(id){appointments=appointments.filter(a=>a.id!==id);renderAppointments();autoSave();}
+function renderAppointments(){
+  renderApptDoctorChips();
+  var only=document.getElementById("onlyApptDate").checked;var iso=apptIso();
+  var list=[...appointments];
+  if(apptFilterDoctor)list=list.filter(a=>a.doctor===apptFilterDoctor);
+  if(only)list=list.filter(a=>a.date===iso&&a.shift===apptShift);
+  list.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  var t=document.getElementById("apptTable");
+  if(!list.length){t.innerHTML='<tr><th>تاریخ شمسی</th><th>شیفت</th><th>ساعت</th><th>بیمار</th><th>پزشک</th><th>یونیت</th><th>خدمت</th><th>پایان</th><th class="no-print">حذف</th></tr><tr><td colspan="9" style="color:#64748b">نوبتی نیست.</td></tr>';return;}
+  var html='<tr><th>تاریخ شمسی</th><th>شیفت</th><th>ساعت پذیرش</th><th>نام بیمار</th><th>پزشک</th><th>یونیت</th><th>خدمت</th><th>پایان</th><th class="no-print">حذف</th></tr>';
+  list.forEach(function(a){var sh=a.shift==="morning"?"☀️ صبح":"🌙 عصر";html+='<tr><td>'+isoToJalStr(a.date)+'<br><small style="color:#64748b">'+weekdayFa(a.date)+'</small></td><td>'+sh+'</td><td><b>'+a.time+'</b></td><td>'+a.patient+'</td><td><span class="badge '+colorOf(a.doctor)+'">'+a.doctor+'</span></td><td>'+a.unit+'</td><td>'+a.service+'<br><small style="color:#64748b">'+faNum(a.dur)+' دقیقه</small></td><td>'+minToTime(timeToMin(a.time)+(a.dur||30))+'</td><td class="no-print"><button class="red" style="padding:4px 10px;font-size:12px" onclick="deleteAppt('+a.id+')">✕</button></td></tr>';});
+  t.innerHTML=html;
+}
+function exportApptCSV(){if(!appointments.length){alert("نوبتی ثبت نشده");return;}var csv="تاریخ شمسی,روز هفته,شیفت,ساعت پذیرش,ساعت پایان,نام بیمار,دندانپزشک,یونیت,خدمت,مدت\n";[...appointments].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).forEach(function(a){csv+=isoToJalStr(a.date)+","+weekdayFa(a.date)+","+(a.shift==="morning"?"صبح":"عصر")+","+a.time+","+minToTime(timeToMin(a.time)+(a.dur||30))+","+a.patient+","+a.doctor+","+a.unit+","+a.service+","+a.dur+"\n";});var blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});var el=document.createElement("a");el.href=URL.createObjectURL(blob);el.download="nobat-paziresh.csv";el.click();}
+function autoSave(){try{localStorage.setItem("dental4v5",JSON.stringify({doctors,activeDays,schedule,services,appointments,apptShift,apptFilterDoctor,w:getJal("wY","wM","wD"),a:getJal("aY","aM","aD")}));}catch(e){}}
+function saveLocal(){autoSave();alert("ذخیره شد ✅");}
+function loadLocal(){try{var j=JSON.parse(localStorage.getItem("dental4v4")||localStorage.getItem("dental4v3")||"null");if(j){doctors=j.doctors||[];if(j.activeDays)activeDays=j.activeDays;schedule=j.schedule||{};if(j.services&&j.services.length)services=j.services;if(j.appointments)appointments=j.appointments;if(j.apptShift)apptShift=j.apptShift;window._w=j.w;window._a=j.a;}}catch(e){}}
+function renderAll(){renderDocs();renderDaysCheck();renderTable();renderSummary();renderApptFormOptions();renderServiceChips();renderActiveShift();renderAppointments();}
+
+/* شروع */
+loadLocal();
+(function init(){
+  var g=new Date();var tj=toJalaali(g.getFullYear(),g.getMonth()+1,g.getDate());
+  var w=window._w||(function(){var iso=g.getFullYear()+"-"+String(g.getMonth()+1).padStart(2,"0")+"-"+String(g.getDate()).padStart(2,"0");var sat=addDaysIso(iso,-dayIdxFa(iso));var p=sat.split("-");return toJalaali(+p[0],+p[1],+p[2]);})();
+  var a=window._a||{jy:tj.jy,jm:tj.jm,jd:tj.jd};
+  fillJalali("wY","wM","wD",w.jy||w.y||tj.jy,w.jm||w.m||tj.jm,w.jd||w.d||tj.jd);
+  fillJalali("aY","aM","aD",a.jy||a.y||tj.jy,a.jm||a.m||tj.jm,a.jd||a.d||tj.jd);
+  onWeekJalali();renderAll();setApptShift(apptShift||"morning");
+  // اجرای اول: با داده نمونه آماده شروع شود تا برنامه خالی و قفل به نظر نرسد
+  try{
+    if(doctors.length===0&&Object.keys(schedule).length===0){
+      doctors=[{name:"دکتر احمدی",spec:"عمومی"},{name:"دکتر کریمی",spec:"ارتودنسی"},{name:"دکتر موسوی",spec:"ایمپلنت"},{name:"دکتر رضایی",spec:"عمومی"},{name:"دکتر نادری",spec:"اطفال"},{name:"دکتر صادقی",spec:"جراحی"}];
+      autoFill(true);
+      renderAll();
+    }
+  }catch(e){}
+})();
+</script>
+<script>
+(function(){
+  if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); deferred = e;
+    document.getElementById('installBar').style.display = 'block';
+  });
+  document.addEventListener('click', function(e){
+    if (e.target && e.target.id === 'installBtn') {
+      if (deferred) { deferred.prompt(); deferred.userChoice.then(function(){ deferred = null; document.getElementById('installBar').style.display = 'none'; }).catch(function(){}); }
+      else { alert('از منوی مرورگر گزینه Install / نصب برنامه یا Add to Home screen را بزنید.'); }
+    }
+  });
+  window.addEventListener('appinstalled', function(){ try{document.getElementById('installBar').style.display='none';}catch(e){} });
+})();
+</script>
+</body>
+</html>
+
+{
+  "name": "کلینیک دندانپزشکی — شیفت و پذیرش",
+  "short_name": "کلینیک دندان",
+  "description": "برنامه شیفت کاری دندانپزشکان با ۴ یونیت (البرز، صدف، پارس، بیوتی) + پذیرش و نوبت‌دهی با تاریخ شمسی",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
