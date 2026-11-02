@@ -1,4 +1,4 @@
-@echo off
+آزمایش دریافت تغییرات از اینترنت@echo off
 REM اجرای اپ کلینیک روی ویندوز + باز شدن در مرورگر
 cd /d "%~dp0"
 start "" "http://localhost:8931/index.html"
